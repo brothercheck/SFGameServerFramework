@@ -11,11 +11,19 @@ namespace Account.Controllers
     public class AccountController : Controller
     {
         [HttpGet]
-        public IEnumerable<string> Get()
+        public IEnumerable<string> Register()
         {
             string string1 = "hello";
 
             return new string[] { $"{string1}", "value2" };
+        }
+
+
+        [HttpGet]
+
+        public string Login()
+        {
+            return string.Empty;
         }
     }
 }
