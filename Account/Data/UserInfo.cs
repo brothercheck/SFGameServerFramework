@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SD.Infrastructure.EntityBase;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -9,9 +10,13 @@ namespace Account.Data
     /// <summary>
     /// 角色信息
     /// </summary>
-    public class UserInfo
+    public class UserInfo : AggregateRootEntity
     {
-        [Key]
+        public UserInfo()
+        {
+
+        }
+        //TODO
         [Required]
         [StringLength(64, ErrorMessage = "{0}长度必须介于{2}和{1}之间", MinimumLength = 64)]
         public string UserId { get; set; }

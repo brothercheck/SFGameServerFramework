@@ -13,7 +13,7 @@ namespace Account.Model
         /// <summary>
         /// 状态码
         /// </summary>
-        public int StateCode { get; set; } = 0;
+        public StateCode StateCode { get; set; } = 0;
 
         /// <summary>
         /// 状态详细描述

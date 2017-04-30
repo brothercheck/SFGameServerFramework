@@ -13,13 +13,14 @@ namespace Account.Data
     /// </summary>
     public class AccountInfo: AggregateRootEntity
     {
-        /// <summary>
-        /// 账号
-        /// </summary>
-        [Key]
-        [Required]
-        public string UserId { get; set; }
+        public AccountInfo()
+        {
 
+        }
+        public AccountInfo(string name)
+        {
+            this.Name = name;
+        }
         /// <summary>
         /// 密码
         /// </summary>
@@ -35,7 +36,7 @@ namespace Account.Data
         /// </summary>
         public string IMEI { get; set; } = string.Empty;
 
-        public DateTime RegisterTime { get; set; } = DateTime.Now;
+       
         public string RegisterIp { get; set; } = string.Empty;
 
         /// <summary>

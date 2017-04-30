@@ -11,6 +11,8 @@ using Common;
 using Account.Data;
 using Account.IRepositories;
 using Account.Repositories;
+using System.Diagnostics;
+using Account.Data.Logs;
 
 namespace Account.Controllers
 {
@@ -18,10 +20,16 @@ namespace Account.Controllers
     [Route("[controller]/[action]")]
     public class AccountController : Controller
     {
-        private IAccountInfoRepository _accountInfoRep;
+        private readonly IAccountInfoRepository _accountInfoRep;
+        private readonly IUserInfoRepository _userInfoRep;
+        private readonly ITokenListRepository _tokenListRep;
+        private readonly IRegisterLogRepository _regLogRep;
         public AccountController()
         {
             _accountInfoRep = new AccountInfoRepository();
+            _userInfoRep = new UserInfoRepository();
+            _tokenListRep = new TokenListRepository();
+            _regLogRep = new RegisterLogRepository();
         }
 
 
@@ -50,7 +58,7 @@ namespace Account.Controllers
                 return new BaseResponseModel()
                 {
                     Handler = nameof(AccountController.Register),
-                    StateCode = (int)StateCode.ParamsError,
+                    StateCode = StateCode.ParamsError,
                     StateDescription = DefineCode.ParamsError,
                     Vesion = DefineCode.Version,
                     Data = null
@@ -64,7 +72,7 @@ namespace Account.Controllers
                 return new BaseResponseModel()
                 {
                     Handler = nameof(AccountController.Register),
-                    StateCode = (int)StateCode.SignError,
+                    StateCode = StateCode.SignError,
                     StateDescription = DefineCode.SignError,
                     Vesion = DefineCode.Version,
                     Data = null
@@ -76,19 +84,58 @@ namespace Account.Controllers
             //TODO:
             Guid token = Guid.NewGuid();
             Guid userId = Guid.NewGuid();
-            Task tokenTask = Task.Run(() => InsertTokenList(token, pid));  //生成token 并写入Token列表
-            Task regTask = Task.Run(() => Register(pid, pwd, mobileType, imei, HttpContext.Connection.RemoteIpAddress.ToString()));       //注册账号
-            Task logTask = Task.Run(() => InsertRegLog(pid, pwd, imei, mobileType, userId));//写入日志
-            #endregion
-
-            #region 返回
-            return new BaseResponseModel()
+            BaseResponseModel result = new BaseResponseModel();
+            bool tag = false;
+            try
             {
-                Handler = nameof(AccountController.Register),
-                Data = new { Token = token, UserId = userId }
-            };
-            #endregion
+                Task tokenTask = Task.Run(() => InsertTokenList(token, pid));  //生成token 并写入Token列表
+                var regTask = Register(pid, pwd, mobileType, imei, HttpContext.Connection.RemoteIpAddress.ToString());       //注册账号
+                Task logTask = Task.Run(() => InsertRegLog(pid, imei, mobileType));//写入日志
+                switch (regTask)
+                {
+                    case -1:
+                        tag = true;
+                        result = new BaseResponseModel()
+                        {
+                            StateCode = StateCode.RegistError,
+                            Vesion = DefineCode.Version,
+                            StateDescription = DefineCode.RegistError,
+                            Handler = nameof(AccountController.Register),
+                            Data = null
+                        }; break;
+                    case -2:
+                        tag = true;
+                        result = new BaseResponseModel()
+                        {
+                            StateCode = StateCode.RegistError,
+                            Vesion = DefineCode.Version,
+                            StateDescription = DefineCode.ParamsInvaild,
+                            Handler = nameof(AccountController.Register),
+                            Data = null
+                        }; break;
+                    default: break;
+                }
+            }
 
+            catch (Exception ex)
+            {
+                tag = true;
+                result = new BaseResponseModel()
+                {
+                    StateCode = StateCode.RegistError,
+                    StateDescription = ex.Message,
+                    Handler = nameof(AccountController.Register),
+                    Data = null
+                };
+            }
+            #endregion
+            if (!tag)
+                result = new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Register),
+                    Data = new { Token = token, UserId = userId }
+                };
+            return result;
         }
 
         #region 检查签名 CheckSign(HttpContext httpContext, string sign)
@@ -108,12 +155,21 @@ namespace Account.Controllers
             return false;
         }
         #endregion
-        private void InsertRegLog(string pid, string pwd, string imei, int mobileType, Guid userId)
+
+
+        /// <summary>
+        /// 写入注册日志
+        /// </summary>
+        /// <param name="pid"></param>
+        /// <param name="imei"></param>
+        /// <param name="mobileType"></param>
+        private void InsertRegLog(string pid, string imei, byte mobileType)
         {
+            _regLogRep.Add(new RegisterLog(pid, mobileType, imei));
+
             //TODO
             //异常处理
         }
-
 
         /// <summary>
         /// 写入Token数据到表中
@@ -123,9 +179,21 @@ namespace Account.Controllers
         private void InsertTokenList(Guid token, string userId)
         {
             //检查userid 是否已存在
-
+            bool isExists = _tokenListRep.ExistsName(userId);
+            //存在 更新token
+            if (isExists)
+            {
+                var isExistsToken = _tokenListRep.SingleByName(userId);
+                isExistsToken.Update(token);
+                _tokenListRep.Save(isExistsToken);
+            }
+            else
+            {
+                //不存在，新增 userid 和token
+                TokenList tokenList = new TokenList(userId, token);
+                _tokenListRep.Add(tokenList);
+            }
             //TODO
-            DateTime dateTime = DateTime.Now;
             //异常处理
         }
 
@@ -136,27 +204,34 @@ namespace Account.Controllers
         /// <param name="pid"></param>
         /// <param name="pwd"></param>
         /// <returns></returns>
-        private void Register(string pid, string pwd, byte mobileType, string imei, string registerIp)
+        private int Register(string pid, string pwd, byte mobileType, string imei, string registerIp)
         {
-            //TODO
-            //写入角色表  创建新角色
-            AccountInfo account = new AccountInfo()
+            //检查账号是否重复
+            if (_accountInfoRep.ExistsName(pid))
             {
-                UserId = pid,
+                return -1;
+            }
+            bool arg = false;
+            //写入角色表  创建新角色
+            AccountInfo account = new AccountInfo(pid)
+            {
                 Password = pwd,
                 IMEI = imei,
                 RegisterIp = registerIp
             };
-
             try
             { //插入数据库
                 _accountInfoRep.Add(account);
             }
-            catch (Exception ex)
+            catch (ArgumentNullException ex)
             {
-                //异常处理
-
+                arg = true;
             }
+            if (arg)
+            {
+                return -2;
+            }
+            return 0;
         }
         #endregion
 
@@ -205,7 +280,7 @@ namespace Account.Controllers
                 return new BaseResponseModel()
                 {
                     Handler = nameof(AccountController.Login),
-                    StateCode = (int)StateCode.ParamsError,
+                    StateCode = StateCode.ParamsError,
                     StateDescription = DefineCode.ParamsError,
                     Vesion = DefineCode.Version,
                     Data = null
@@ -219,7 +294,7 @@ namespace Account.Controllers
                 return new BaseResponseModel()
                 {
                     Handler = nameof(AccountController.Login),
-                    StateCode = (int)StateCode.SignError,
+                    StateCode = StateCode.SignError,
                     StateDescription = DefineCode.SignError,
                     Vesion = DefineCode.Version,
                     Data = null
@@ -228,23 +303,25 @@ namespace Account.Controllers
             #endregion
 
             #region 验证账号密码
-            if (!CheckId(pid, pwd))
+            switch (CheckId(pid, pwd))
             {
-                return new BaseResponseModel()
-                {
-                    Handler = nameof(AccountController.Login),
-                    StateCode = (int)StateCode.PassworkError,
-                    StateDescription = DefineCode.PasswordOrPassError,
-                    Vesion = DefineCode.Version,
-                    Data = null
-                };
+                case -1:
+                    return new BaseResponseModel()
+                    {
+                        Handler = nameof(AccountController.Login),
+                        StateCode = StateCode.PasswordError,
+                        StateDescription = DefineCode.PasswordError,
+                        Vesion = DefineCode.Version,
+                        Data = null
+                    };
+                case -2: break;
             }
 
             #endregion
 
             #region 执行DB操作
             Guid token = Guid.NewGuid();
-            Task tokenTask = Task.Run(() => InsertTokenList(token,pid)); //写入token列表
+            Task tokenTask = Task.Run(() => InsertTokenList(token, pid)); //写入token列表
             Task logTask = Task.Run(() => InsertLoginLog(pid, imei, retialUser, retianToken));
             #endregion
 
@@ -262,19 +339,21 @@ namespace Account.Controllers
         /// <param name="pid"></param>
         /// <param name="pwd"></param>
         /// <returns></returns>
-        private bool CheckId(string pid, string pwd)
+        private int CheckId(string pid, string pwd)
         {
             //查找 pid
-            //if ()
-
-
-            //验证加密后的密码是否一致
-            if (true)
-            {
-                return true;
+            if (_accountInfoRep.ExistsName(pid))
+            {//账号存在,验证密码
+                if (!true)
+                {
+                    return -1;
+                }
+                return 0;
             }
-
-            return false;
+            else
+            {   //d账号不存在
+                return -2;
+            }
         }
 
         /// <summary>

@@ -17,18 +17,19 @@ namespace Account.Model
         106: 登录凭证过期
         */
         public static string Version { get; set; } = "1.0.0";
-        public const string Error = "账号服务器异常！";
-        public const string IMEINullError = "IMEI为空！";
-        public const string SignError = "签名错误！";
-        public const string NoHandler = "无处理程序！";
-        public const string PassworkLengthError = "密码长度错误！";
-        public const string PassworkError = "密码错误！";
-        public const string PasswordOrPassError = "账号或密码错误！";
-        public const string RegistError = "账号已存在，注册失败！";
-        public const string ChangePassError = "修改密码失败！";
-        public const string NoToken = "登录凭证无效！";
-        public const string TokenExpired = "登录凭证已过期！";
-        public const string ParamsError = "请求参数错误";
+        public const string Error = "账号服务器异常!";
+        public const string IMEINullError = "IMEI为空!";
+        public const string SignError = "签名错误!";
+        public const string NoHandler = "无处理程序!";
+        public const string PasswordLengthError = "密码长度错误!";
+        public const string PasswordError = "密码错误!";
+        public const string PassportError = "账号不存在!"
+        public const string RegistError = "账号已存在，注册失败!";
+        public const string ChangePasswordError = "修改密码失败!";
+        public const string NoToken = "登录凭证无效!";
+        public const string TokenExpired = "登录凭证已过期!";
+        public const string ParamsError = "请求参数错误!";
+        public const string ParamsInvaild = "请求的值无效!";
     }
 
     public enum StateCode
@@ -42,7 +43,7 @@ namespace Account.Model
         //无处理程序
         NoHandler = 102,
         //密码错误
-        PassworkError = 103,
+        PasswordError = 103,
         //登录凭证无效
         NoToken = 105,
         //登录凭证过期
@@ -51,7 +52,8 @@ namespace Account.Model
         Timeout = 107,
         //转换json错误
         ParseError = 108,
-        ParamsError = 109
+        ParamsError = 109,
+        RegistError = 110,
 
     }
 }
