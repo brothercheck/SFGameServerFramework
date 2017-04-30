@@ -10,8 +10,8 @@ namespace GameLogic
 {
     class WebSocketHandler
     {
-        private  readonly WebSocketServer _ws;
-        private  readonly Int32 _port;
+        private readonly WebSocketServer _ws;
+        private readonly Int32 _port;
         public WebSocketHandler(int port = 5088)
         {
             _ws = new WebSocketServer();
@@ -60,7 +60,11 @@ namespace GameLogic
 
         public void OnMessageReceived(WebSocketSession session, string value)
         {
+            var sid = session.SessionID;
+            //value 中分离出来 各种参数
+            //NameValueColl
             //TODO: 收到文本消息处理
+            //分发消息
         }
 
 

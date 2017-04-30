@@ -65,9 +65,12 @@ namespace GameLogic
 
             //    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
             //}
+            #region 启动websocket服务器
             WebSocketHandler ws = new WebSocketHandler();
-            Task task = Task.Run(()=>ws.Start());
-           
+            Task task = Task.Run(() => ws.Start());
+            #endregion
+
+
         }
     }
 }
