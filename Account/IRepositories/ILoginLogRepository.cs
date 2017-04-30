@@ -1,4 +1,4 @@
-﻿using Account.Data;
+﻿using Account.Data.Logs;
 using SD.Infrastructure.RepositoryBase;
 using System;
 using System.Collections.Generic;
@@ -7,11 +7,7 @@ using System.Threading.Tasks;
 
 namespace Account.IRepositories
 {
-
-    /// <summary>
-    /// 账号信息仓储接口
-    /// </summary>
-    public interface IAccountInfoRepository : ISimpleRepository<AccountInfo>
+    interface ILoginLogRepository : ISimpleRepository<LoginLog>
     {
     }
 }

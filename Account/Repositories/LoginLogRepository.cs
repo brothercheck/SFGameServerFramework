@@ -1,4 +1,4 @@
-﻿using Account.Data;
+﻿using Account.Data.Logs;
 using Account.IRepositories;
 using SD.Infrastructure.Repository.MongoDB;
 using System;
@@ -8,10 +8,7 @@ using System.Threading.Tasks;
 
 namespace Account.Repositories
 {
-    /// <summary>
-    /// 账号信息仓储实现
-    /// </summary>
-    public class AccountInfoRepository : MongoRepositoryProvider<AccountInfo>, IAccountInfoRepository
+    public class LoginLogRepository : MongoRepositoryProvider<LoginLog>, ILoginLogRepository
     {
     }
 }

@@ -12,16 +12,16 @@ namespace Account.Data
         {
 
         }
-        public TokenList(string pid, Guid token)
+        public TokenList(string pid, string token)
         {
             Name = pid;
             Token = token;
             SavedTime = DateTime.Now;
         }
-        public Guid Token { get; set; }
+        public string Token { get; set; }
 
         //更新token
-        public void Update(Guid token)
+        public void Update(string token)
         {
             Token = token;
             SavedTime = DateTime.Now;

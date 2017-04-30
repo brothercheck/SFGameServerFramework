@@ -23,7 +23,7 @@ namespace Account.Model
         public const string NoHandler = "无处理程序!";
         public const string PasswordLengthError = "密码长度错误!";
         public const string PasswordError = "密码错误!";
-        public const string PassportError = "账号不存在!"
+        public const string PassportError = "账号不存在!";
         public const string RegistError = "账号已存在，注册失败!";
         public const string ChangePasswordError = "修改密码失败!";
         public const string NoToken = "登录凭证无效!";
@@ -54,6 +54,10 @@ namespace Account.Model
         ParseError = 108,
         ParamsError = 109,
         RegistError = 110,
+        LoginError = 111,
+        LoginPwdErr = 112,
+        LoginPassportError = 113,
+        PassportError = 114,
 
     }
 }

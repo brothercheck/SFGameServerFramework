@@ -11,7 +11,7 @@ namespace Account.Data
     /// <summary>
     /// 账号注册信息
     /// </summary>
-    public class AccountInfo: AggregateRootEntity
+    public class AccountInfo : AggregateRootEntity
     {
         public AccountInfo()
         {
@@ -28,15 +28,16 @@ namespace Account.Data
         public string Password { get; set; }
 
         /// <summary>
+        /// 设备码
+        /// </summary>
+        public string  IMEI { get; set; }
+
+        /// <summary>
         /// 手机类型
         /// </summary>
         public byte MobileType { get; set; } = 0;
-        /// <summary>
-        /// 手机设备识别码  可以为空
-        /// </summary>
-        public string IMEI { get; set; } = string.Empty;
 
-       
+
         public string RegisterIp { get; set; } = string.Empty;
 
         /// <summary>

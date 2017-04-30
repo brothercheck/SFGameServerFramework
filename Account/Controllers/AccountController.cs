@@ -20,22 +20,23 @@ namespace Account.Controllers
     [Route("[controller]/[action]")]
     public class AccountController : Controller
     {
+        #region 依赖注入
         private readonly IAccountInfoRepository _accountInfoRep;
         private readonly IUserInfoRepository _userInfoRep;
         private readonly ITokenListRepository _tokenListRep;
         private readonly IRegisterLogRepository _regLogRep;
+        private readonly ILoginLogRepository _loginLogRep;
         public AccountController()
         {
             _accountInfoRep = new AccountInfoRepository();
             _userInfoRep = new UserInfoRepository();
             _tokenListRep = new TokenListRepository();
             _regLogRep = new RegisterLogRepository();
+            _loginLogRep = new LoginLogRepository();
         }
+        #endregion
 
-
-        #region 账号注册  
-
-
+        #region 账号注册 [HttpGet]   Register(string pid, string pwd, string imei, int screenX, int screenY, string retailId, string sign, byte mobileType = 0, bool isCustom = true)
         /// <summary>
         /// 注册事件
         /// </summary>
@@ -82,15 +83,16 @@ namespace Account.Controllers
 
             #region 执行
             //TODO:
-            Guid token = Guid.NewGuid();
+            string token = Guid.NewGuid().ToString().Replace("-", "");
             Guid userId = Guid.NewGuid();
             BaseResponseModel result = new BaseResponseModel();
             bool tag = false;
             try
             {
-                Task tokenTask = Task.Run(() => InsertTokenList(token, pid));  //生成token 并写入Token列表
                 var regTask = Register(pid, pwd, mobileType, imei, HttpContext.Connection.RemoteIpAddress.ToString());       //注册账号
+                Task tokenTask = Task.Run(() => InsertTokenList(token, pid));  //生成token 并写入Token列表
                 Task logTask = Task.Run(() => InsertRegLog(pid, imei, mobileType));//写入日志
+                Task loginTask = Task.Run(() => InsertLoginLog(pid, imei));  //写入登陆日志
                 switch (regTask)
                 {
                     case -1:
@@ -156,7 +158,7 @@ namespace Account.Controllers
         }
         #endregion
 
-
+        #region 写入注册日志 InsertRegLog(string pid, string imei, byte mobileType)
         /// <summary>
         /// 写入注册日志
         /// </summary>
@@ -170,13 +172,15 @@ namespace Account.Controllers
             //TODO
             //异常处理
         }
+        #endregion
 
+        #region 写入tokenList InsertTokenList(string token, string userId)
         /// <summary>
         /// 写入Token数据到表中
         /// </summary>
         /// <param name="token">token</param>
         /// <param name="userId">userid</param>
-        private void InsertTokenList(Guid token, string userId)
+        private void InsertTokenList(string token, string userId)
         {
             //检查userid 是否已存在
             bool isExists = _tokenListRep.ExistsName(userId);
@@ -196,8 +200,9 @@ namespace Account.Controllers
             //TODO
             //异常处理
         }
+        #endregion
 
-
+        #region 注册新用户写入db Register(string pid, string pwd, byte mobileType, string imei, string registerIp)
         /// <summary>
         /// 注册新用户账号
         /// </summary>
@@ -234,8 +239,9 @@ namespace Account.Controllers
             return 0;
         }
         #endregion
+        #endregion
 
-
+        #region 用户登录 Login(string pid, string pwd, string imei, int screenX, int screenY, string retailId, string retialUser, string retialToken, string sign, int mobileType = -1)      
         /// <summary>
         /// 用户登录
         /// </summary>
@@ -246,13 +252,12 @@ namespace Account.Controllers
         /// <param name="screenY">高度</param>
         /// <param name="retailId">第三方id</param>
         /// <param name="retialUser">第三方账号</param>
-        /// <param name="retianToken">第三方token</param>
+        /// <param name="retialToken">第三方token</param>
         /// <param name="sign">签名字串</param>
         /// <param name="mobileType">手机类型</param>
         /// <returns></returns>
         [HttpGet]
-
-        public BaseResponseModel Login(string pid, string pwd, string imei, int screenX, int screenY, string retailId, string retialUser, string retianToken, string sign, int mobileType = -1)
+        public BaseResponseModel Login(string pid, string pwd, string imei, int screenX, int screenY, string retailId, string retialUser, string retialToken, string sign, int mobileType = -1)
         {
 
             /*
@@ -303,7 +308,7 @@ namespace Account.Controllers
             #endregion
 
             #region 验证账号密码
-            switch (CheckId(pid, pwd))
+            switch (CheckId(pid, pwd, imei))
             {
                 case -1:
                     return new BaseResponseModel()
@@ -314,15 +319,37 @@ namespace Account.Controllers
                         Vesion = DefineCode.Version,
                         Data = null
                     };
-                case -2: break;
+                case -2:
+                    return new BaseResponseModel()
+                    {
+                        Handler = nameof(AccountController.Login),
+                        StateCode = StateCode.PasswordError,
+                        StateDescription = DefineCode.PassportError,
+                        Vesion = DefineCode.Version,
+                        Data = null
+                    };
             }
 
             #endregion
 
             #region 执行DB操作
-            Guid token = Guid.NewGuid();
-            Task tokenTask = Task.Run(() => InsertTokenList(token, pid)); //写入token列表
-            Task logTask = Task.Run(() => InsertLoginLog(pid, imei, retialUser, retianToken));
+            string token = Guid.NewGuid().ToString().Replace("-", "");
+            try
+            {
+                Task tokenTask = Task.Run(() => InsertTokenList(token, pid)); //写入token列表
+                Task logTask = Task.Run(() => InsertLoginLog(pid, imei, retialUser, retialToken));  //写入日志
+            }
+            catch (Exception ex)
+            {
+                //TODO:异常处理  账号登陆
+                return new BaseResponseModel()
+                {
+                    StateCode = StateCode.LoginError,
+                    StateDescription = ex.Message,
+                    Handler = nameof(AccountController.Login),
+                    Data = null
+                };
+            }
             #endregion
 
             return new BaseResponseModel()
@@ -331,22 +358,27 @@ namespace Account.Controllers
                 Data = new { Token = token }
             };
         }
+        #endregion
 
-
+        #region 检查账号密码是否有效 CheckId(string pid, string pwd, string imei)
         /// <summary>
         /// 检查账号密码是否正确
         /// </summary>
         /// <param name="pid"></param>
         /// <param name="pwd"></param>
         /// <returns></returns>
-        private int CheckId(string pid, string pwd)
+        private int CheckId(string pid, string pwd, string imei)
         {
             //查找 pid
             if (_accountInfoRep.ExistsName(pid))
             {//账号存在,验证密码
-                if (!true)
-                {
-                    return -1;
+                var user = _accountInfoRep.SingleByName(pid);
+                if (!user.Password.Equals(pwd))
+                {   //密码不对
+                    if (!user.Name.Equals(imei))
+                    {   //并且imei也对不上
+                        return -1;
+                    }
                 }
                 return 0;
             }
@@ -355,33 +387,151 @@ namespace Account.Controllers
                 return -2;
             }
         }
+        #endregion
 
+        #region 写入登陆日志 InsertLoginLog(string userId, string imei, string retialUser = "", string retialToken = "")
         /// <summary>
         /// 写入登陆日志
         /// </summary>
         /// <param name="userId">账号</param>
         /// <param name="imei">设备码</param>
         /// <param name="retialUser">第三方账号</param>
-        /// <param name="retianToken">第三方token</param>
-        private void InsertLoginLog(string userId, string imei, string retialUser, string retianToken)
+        /// <param name="retialToken">第三方token</param> 
+        private void InsertLoginLog(string userId, string imei, string retialUser = "", string retialToken = "")
         {
-            throw new NotImplementedException();
+            LoginLog loginLog = new LoginLog(userId, imei, retialUser, retialToken);
+            _loginLogRep.Add(loginLog);
         }
+        #endregion
 
+        #region 一键注册 Passport(string imei, string sign, byte mobileType = 0)
         /// <summary>
         /// 一键注册 自动注册接口
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        public BaseResponseModel Passport()
+        public BaseResponseModel Passport(string imei, string sign, byte mobileType = 0)
         {
-
-            string token = Guid.NewGuid().ToString();
-            return new BaseResponseModel()
+            //IMEI=00:02:32:65&sign=2bcc51b165368e139111914e12864a89
+            #region 非空验证
+            if (string.IsNullOrEmpty(imei) || string.IsNullOrEmpty(sign))
             {
-                Handler = nameof(AccountController.Passport),
-                Data = new { Token = token }
-            };
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Passport),
+                    StateCode = StateCode.ParamsError,
+                    StateDescription = DefineCode.ParamsError,
+                    Vesion = DefineCode.Version,
+                    Data = null
+                };
+            }
+
+            #endregion
+
+            #region 验证sign
+            if (!CheckSign(HttpContext, sign))
+            {
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Register),
+                    StateCode = StateCode.SignError,
+                    StateDescription = DefineCode.SignError,
+                    Vesion = DefineCode.Version,
+                    Data = null
+                };
+            }
+            #endregion
+
+            #region 执行
+            var token = Guid.NewGuid().ToString().Replace("-", "");
+            if (_accountInfoRep.ExistsName(imei))
+            {
+                //imei存在，直接返回token 和 userid
+                var user = _accountInfoRep.SingleByName(imei);
+                //写入 tokenlist
+                Task tokenTask = Task.Run(() => InsertTokenList(token, imei));  //生成token 并写入Token列表
+                Task loginTask = Task.Run(() => InsertLoginLog(imei, imei));  //写入登陆日志
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Passport),
+                    Data = new { Token = token, UserId = user.Name }
+                };
+            }
+            else
+            {
+                //不存在，注册新账号
+                AccountInfo accountInfo = new AccountInfo(imei);
+                _accountInfoRep.Add(accountInfo);
+                Task logTask = Task.Run(() => InsertRegLog(imei, imei, mobileType));//写入注册日志
+                Task tokenTask = Task.Run(() => InsertTokenList(token, imei));  //生成token 并写入Token列表
+                Task loginTask = Task.Run(() => InsertLoginLog(imei, imei));  //写入登陆日志
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Passport),
+                    Data = new { Token = token, UserId = accountInfo.Name }
+                };
+            }
+            #endregion
         }
+        #endregion
+
+        #region 修改密码接口 Password(string passportId, string password, string sign)
+        [HttpGet]
+        public BaseResponseModel Password(string passportId, string password, string sign)
+        {
+            #region 非空验证
+            if (string.IsNullOrEmpty(passportId) || string.IsNullOrEmpty(passportId) || string.IsNullOrEmpty(sign))
+            {
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Password),
+                    StateCode = StateCode.ParamsError,
+                    StateDescription = DefineCode.ParamsError,
+                    Vesion = DefineCode.Version,
+                    Data = null
+                };
+            }
+            #endregion
+            #region 验证sign
+            if (!CheckSign(HttpContext, sign))
+            {
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Password),
+                    StateCode = StateCode.SignError,
+                    StateDescription = DefineCode.SignError,
+                    Vesion = DefineCode.Version,
+                    Data = null
+                };
+            }
+            #endregion
+            #region 修改密码
+            //1查找用户
+            var user = _accountInfoRep.SingleByName(passportId);
+            if (user != null)
+            {
+                user.Password = password;
+                _accountInfoRep.Save(user);
+                return new BaseResponseModel()
+                {
+                    Handler = nameof(AccountController.Password),
+                    Data = null
+                };
+            }
+            else
+            {
+                //无此用户
+                return new BaseResponseModel()
+                {
+                    StateCode = StateCode.PassportError,
+                    StateDescription = DefineCode.PassportError,
+                    Vesion = DefineCode.Version,
+                    Handler = nameof(AccountController.Password),
+                    Data = null
+                };
+            }
+            #endregion
+        }
+        #endregion
     }
 }
